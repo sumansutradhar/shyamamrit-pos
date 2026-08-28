@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ================= USER ROLES =================
+enum Role {
+  ADMIN
+  CASHIER
+  WAITER
+  KITCHEN
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  username  String   @unique
+  password  String   // Hashed via bcrypt
+  role      Role     @default(WAITER)
+  phone     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ================= MENU & INVENTORY =================
+model Category {
+  id        String     @id @default(uuid())
+  name      String     @unique
+  sortOrder Int        @default(0)
+  menuItems MenuItem[]
+}
+
+model MenuItem {
+  id           String      @id @default(uuid())
+  name         String
+  price        Float
+  category     Category    @relation(fields: [categoryId], references: [id])
+  categoryId   String
+  image        String?
+  description  String?
+  isAvailable  Boolean     @default(true)
+  isSatvik     Boolean     @default(false)
+  spiceLevel   Int         @default(1)
+  prepTime     Int         @default(15)
+  orderItems   OrderItem[]
+}
+
+// ================= TABLES & ORDERS =================
+model Table {
+  id       String  @id @default(uuid())
+  number   Int     @unique
+  capacity Int     @default(4)
+  status   String  @default("AVAILABLE")
+  orders   Order[]
+}
+
+enum OrderType {
+  DINE_IN
+  TAKEAWAY
+  DELIVERY
+}
+
+enum OrderStatus {
+  PENDING
+  COOKING
+  READY
+  SERVED
+  SETTLED
+  CANCELLED
+}
+
+model Order {
+  id            String      @id @default(uuid())
+  invoiceNo     String?     @unique
+  token         String      @unique
+  type          OrderType
+  status        OrderStatus @default(PENDING)
+  
+  subtotal      Float
+  discount      Float       @default(0)
+  packagingFee  Float       @default(0)
+  deliveryFee   Float       @default(0)
+  roundOff      Float       @default(0)
+  total         Float
+
+  paymentMode   String?
+  cashAmount    Float?      @default(0)
+  onlineAmount  Float?      @default(0)
+
+  table         Table?      @relation(fields: [tableId], references: [id])
+  tableId       String?
+  
+  customerName  String?
+  customerPhone String?
+
+  items         OrderItem[]
+  kotActions    KOTAction[]
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model OrderItem {
+  id                 String   @id @default(uuid())
+  order              Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId            String
+  menuItem           MenuItem @relation(fields: [menuItemId], references: [id])
+  menuItemId         String
+  quantity           Int
+  specialInstruction String?
+  status             String   @default("PENDING")
+  cancelReason       String?
+}
+
+// ================= KITCHEN DISPLAY (KDS) =================
+model KOTAction {
+  id        String   @id @default(uuid())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   String
+  action    String
+  reason    String?
+  timestamp DateTime @default(now())
+}
